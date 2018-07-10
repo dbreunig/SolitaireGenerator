@@ -3,6 +3,97 @@ require 'pp'
 # ----------------------------------------
 # Models
 
+class Table
+  attr_accessor :stock, :waste, :foundations, :tableaus, :draw_count, :tableau_piles, :remaining_deals
+  def initialize(cards)
+    # Set defaults
+    @draw_count       = 3
+    @remaining_deals  = 3
+    @tableau_piles    = 7
+    # Set up foundations
+    @foundations = Array.new()
+    4.times {
+      new_pile = Pile.new()
+      new_pile.set_type(:foundation) 
+      @foundations << new_pile
+    }
+    # Set up tableaus
+    self.initial_deal(cards)
+    # Set up stock
+    @stock = Stock.new(cards)
+    # Set up waste
+    @waste = Waste.new()
+  end
+  # Deal a new deck
+  def initial_deal(cards) # Initial deal
+    cards.shuffle!
+    @tableaus = Array.new()
+    @tableau_piles.times { 
+      new_pile = Pile.new()
+      new_pile.set_type(:tableau)
+      @tableaus << new_pile 
+    }
+    @tableau_piles.times do |i|
+      (i..@tableau_piles-1).each do |c|
+        @tableaus[c].push(cards.pop)
+      end
+      # Flip the top card
+      @tableaus[i].last.up = true
+    end
+  end
+  def redeal # Start over
+    if @remaining_deals == 0
+      puts "No deals left. :("
+    else
+      @stock = @waste.reverse
+      @waste = []
+      @remaining_deals -= 1
+    end
+  end
+  # Draw from stack
+  # Reset stack
+  # Win?
+  # Available moves?
+  # Export
+  def print_ascii
+    # Print the foundations
+    @foundations.each do | f |
+      print "[]".ljust(4) if f.empty?
+      print f.top_card unless f.empty?
+    end
+    print "    "
+  
+    # Print the top waste card
+    print "    " if @waste.empty?
+    print @waste.last unless @waste.empty?
+  
+    # Print the stock
+    print "X".ljust(4) if @stock.empty?
+    print "[]".ljust(4) unless @stock.empty?
+  
+    # Add some space
+    puts ""
+    puts ""
+  
+    # Print the tableau
+    max_depth = @tableaus.max_by { |s| s.count }.count
+    max_depth.times do | index |
+      @tableaus.each do | stack |
+        # We're taller than the current stack
+        if (index + 1) > stack.count
+          print "    "
+          next
+        end
+        # Check to see if the card is up
+        card = stack[index]
+        print "[]".ljust(4) unless card.up
+        print card if card.up
+      end
+      puts ""
+    end   
+  end
+end
+
 class Card
   attr_accessor :value, :suit, :up
   def initialize(value, suit)
@@ -66,16 +157,6 @@ class Pile < Array # Pull apart into foundation and tableau?
       return true if self.top_card.value == 13
     end
   end
-end
-
-class Foundations < Array
-  def complete?
-    return true if self.inject { |sum, n| sum + n.complete? } == 4
-    return false
-  end
-end
-
-class Tableaus < Array
 end
 
 class Stock < Array
@@ -175,22 +256,9 @@ end
   Card.new(card_attr[0], card_attr[1])
 end
 
-# Define the table
-@stacks = 7
-@foundations = Foundations.new()
-4.times {
-  new_pile = Pile.new()
-  new_pile.set_type(:foundation) 
-  @foundations << new_pile
-}
-@waste = Waste.new()
-
-# Shuffle & deal the deck
-@cards.shuffle!
-@tableaus = deal(@cards, @stacks)
-@stock = Stock.new(@cards)
-@stock.remaining = 3
-print_table(@foundations, @tableaus, @stock, @waste)
+# Create the table
+@table = Table.new(@cards)
+@table.print_ascii
 
 ### Rules
 # 1. Always plan an A or 2, immediately.
